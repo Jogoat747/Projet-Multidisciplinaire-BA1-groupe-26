@@ -1,0 +1,105 @@
+import math
+
+# --- CONSTANTES PHYSIQUES (provenant de vos documents) ---
+R = 9.56            # Résistance de la bobine (Ohm)
+Delta_Vb = 0.3      # Chute de tension aux balais (V)
+k_moy = 0.0362      # Moyenne de k (V.s/rad)
+k2_moy = 0.00245    # Moyenne de k^2 (V^2.s^2/rad^2)
+gamma = 4           # Rapport de réduction
+rt = 0.008          # Rayon du tambour (m)
+eta = 0.7           # Rendement de la transmission
+Cf = 0.003          # Couple de frottement (N.m)
+Jm = 4.1 * 10**(-5) # Inertie arbre moteur (kg.m²)
+Js = 5 * 10**(-6)   # Inertie roue et tambour (kg.m²)
+g = 9.81            # Pesanteur (m/s²)
+
+
+def calculer_temps_levage(m, h, V):
+    """
+    Calcule le temps de levage t_h (en s) pour une masse m (kg),
+    une hauteur h (m) et une tension V (V).
+    """
+    # 1. Couple résistant Cr
+    Cr = (m * g * rt) / (gamma * eta) + Cf
+
+    # 2. Inertie équivalente ramenée à l'arbre moteur
+    J_eq = Jm + (Js + m * (rt**2)) / (gamma**2)
+
+    # 3. Vérification de la tension minimale
+    denominateur = rt * ((V - Delta_Vb) * k_moy - R * Cr)
+    if denominateur <= 0:
+        return "Tension trop faible pour soulever la charge"
+
+    # 4. Calcul de t_0, tau et delta
+    t0 = (h * gamma * k2_moy) / denominateur
+    tau = (J_eq * R) / k2_moy
+    delta = tau * math.exp(-t0 / tau)
+
+    # 5. Temps total de levage
+    th = t0 + tau - delta
+    return th
+
+
+def calculer_tension(m, h, t_cible):
+    """
+    Trouve la tension V (en V) nécessaire pour soulever une masse m (kg)
+    à une hauteur h (m) en un temps t_cible (s) par dichotomie.
+    """
+    # Tension minimale théorique pour décoller la charge
+    Cr = (m * g * rt) / (gamma * eta) + Cf
+    V_min = Delta_Vb + (R * Cr) / k_moy + 0.001
+    V_max = 10.0  # Tension max du cahier des charges (10 V)
+
+    # Vérification si c'est réalisable avec 10 V maximum
+    t_au_max = calculer_temps_levage(m, h, V_max)
+    if t_au_max is None or t_au_max > t_cible:
+        return "Aucune tension inférieure à 10V ne permet d'aller aussi vite"
+
+    # Recherche précise de la tension par dichotomie (100 itérations)
+    for _ in range(100):
+        V_milieu = (V_min + V_max) / 2
+        t_estime = calculer_temps_levage(m, h, V_milieu)
+
+        if t_estime > t_cible:
+            # Trop lent : il faut augmenter la tension
+            V_min = V_milieu
+        else:
+            # Trop rapide : on peut baisser la tension
+            V_max = V_milieu
+
+    return (V_min + V_max) / 2
+
+
+
+
+print("1. Prédire le temps de levage (à partir de la tension)")
+print("2. Prédire la tension nécessaire (à partir du temps souhaité)")
+
+choix = input("Choisissez une option (1 ou 2) : ")
+
+if choix == "1":
+    masse_g = float(input("Masse de la charge (en g, entre 25 et 100) : "))
+    hauteur = float(input("Hauteur de levage (en m) : "))
+    tension = float(input("Tension du générateur (en V, entre 4 et 10) : "))
+
+    temps = calculer_temps_levage(masse_g / 1000.0, hauteur, tension)
+
+    if temps is None:
+        print("Erreur : La tension est insuffisante pour soulever cette charge.")
+    else:
+        print(f"Temps de levage estimé : {temps:.3f} secondes")
+
+elif choix == "2":
+    masse_g = float(input("Masse de la charge (en g, entre 25 et 100) : "))
+    hauteur = float(input("Hauteur de levage (en m) : "))
+    temps_voulu = float(input("Temps de levage souhaité (en s) : "))
+
+    tension_nec = calculer_tension(masse_g / 1000.0, hauteur, temps_voulu)
+
+    if tension_nec is None:
+        print("Impossible d'atteindre cette hauteur aussi vite (limite de 10 V dépassée).")
+    else:
+        print(f"Tension nécessaire : {tension_nec:.2f} Volts")
+
+else:
+    print("Choix invalide. Relancez le programme et tapez 1 ou 2.")
