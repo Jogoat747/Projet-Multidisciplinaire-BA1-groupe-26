@@ -1,6 +1,6 @@
 import math
 
-# --- CONSTANTES PHYSIQUES (provenant de vos documents) ---
+# CONSTANTES PHYSIQUES 
 R = 9.56            # Résistance de la bobine (Ohm)
 Delta_Vb = 0.3      # Chute de tension aux balais (V)
 k_moy = 0.0362      # Moyenne de k (V.s/rad)
